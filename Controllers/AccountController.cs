@@ -1,4 +1,5 @@
 ﻿using System.Security.Claims;
+using AutoMapper;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
@@ -6,6 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebApplicationShop.Data;
+using WebApplicationShop.Dto;
 using WebApplicationShop.Models;
 
 namespace WebApplicationShop.Controllers
@@ -13,8 +15,14 @@ namespace WebApplicationShop.Controllers
     public class AccountController : Controller
     {
         private readonly AppDbContext _context;
+        private readonly IMapper _mapper;
         private readonly PasswordHasher<User> _hasher = new PasswordHasher<User>();
-        public AccountController(AppDbContext context) => _context = context;
+        public AccountController(AppDbContext context, IMapper mapper)
+        {
+            _context = context;
+            _mapper = mapper;
+        }
+
         // вход
         [HttpGet]
         [AllowAnonymous]
@@ -54,19 +62,20 @@ namespace WebApplicationShop.Controllers
         [HttpPost]
         [AllowAnonymous]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Register(RegisterViewModel model)
+        public async Task<IActionResult> Register(RegisterDto dto)
         {
             if (!ModelState.IsValid)
-                return View(model);
-            if (await _context.Users.AnyAsync(u => u.Email == model.Email))
+                return View(dto);
+            var user = _mapper.Map<User>(dto);
+            if (await _context.Users.AnyAsync(u => u.Email == user.Email))
             {
                 ModelState.AddModelError("Email", "Пользователь с таким email уже есть");
-                return View(model);
+                return View(dto);
             }
             // новый пользователь всегда получает роль user
             var userRole = await _context.Roles.FirstAsync(r => r.Name == "User");
-            var user = new User { Email = model.Email, RoleId = userRole.Id };
-            user.PasswordHash = _hasher.HashPassword(user, model.Password);
+            user.RoleId = userRole.Id;
+            user.PasswordHash = _hasher.HashPassword(user, dto.Password);
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
             user.Role = userRole;
@@ -91,9 +100,13 @@ namespace WebApplicationShop.Controllers
 
         // профиль пользователя
         [Authorize]
-        public IActionResult Profile()
+        public async Task<IActionResult> Profile()
         {
-            return View();
+            var user = await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Email == User.Identity!.Name);
+            if (user == null)
+                return RedirectToAction("Login");
+            var dto = _mapper.Map<UserDto>(user);
+            return View(dto);
         }
 
         // метод аутентификации
