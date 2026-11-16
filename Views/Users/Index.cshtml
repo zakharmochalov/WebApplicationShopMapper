@@ -1,4 +1,36 @@
-﻿@page
-@model WebApplicationShop.Views.Users.IndexModel
-@{
-}
+﻿@model List<WebApplicationShop.Dto.UserDto>
+
+<h1>Пользователи</h1>
+
+<div class="mb-3">
+    Роль:
+    <a asp-action="Index" class="btn btn-sm @(ViewBag.Role == null ? "btn-primary" : "btn-light")">Все</a>
+    @foreach (string r in ViewBag.Roles)
+    {
+        <a asp-action="Index" asp-route-role="@r" class="btn btn-sm @(ViewBag.Role == r ? "btn-primary" : "btn-light")">@r</a>
+    }
+</div>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>№</th>
+            <th>Имя</th>
+            <th>Email</th>
+            <th>Роль</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var u in Model)
+        {
+            <tr>
+                <td>@u.Id</td>
+                <td>@u.Name</td>
+                <td>@u.Email</td>
+                <td>@u.RoleName</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<p class="text-muted">Всего: @Model.Count</p>
